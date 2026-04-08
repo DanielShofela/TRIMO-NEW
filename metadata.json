@@ -1,0 +1,5 @@
+{
+  "name": "Trimo",
+  "description": "Application moderne de gestion des notes scolaires avec synchronisation cloud via Firebase.",
+  "requestFramePermissions": []
+}

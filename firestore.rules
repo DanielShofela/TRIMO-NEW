@@ -1,0 +1,135 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - email: string (required)
+//   - displayName: string (optional)
+//   - createdAt: timestamp (required)
+//   - preferences: map (optional)
+//     - theme: string ('light', 'dark')
+//     - language: string ('fr', 'en')
+//     - consentStatus: bool
+//
+// Sub-collection: users/{userId}/periods
+// Document ID: {periodId}
+// Fields:
+//   - name: string (required)
+//   - startDate: timestamp (required)
+//   - endDate: timestamp (required)
+//   - goal: number (required)
+//   - isActive: bool (optional)
+//
+// Sub-collection: users/{userId}/subjects
+// Document ID: {subjectId}
+// Fields:
+//   - name: string (required)
+//   - coefficient: number (required)
+//   - color: string (required)
+//   - goal: number (required)
+//   - icon: string (optional)
+//
+// Sub-collection: users/{userId}/grades
+// Document ID: {gradeId}
+// Fields:
+//   - subjectId: string (required)
+//   - periodId: string (required)
+//   - name: string (required)
+//   - grade: number (required)
+//   - maxGrade: number (required)
+//   - type: string (required)
+//   - date: timestamp (required)
+//   - comment: string (optional)
+//   - bonus: number (optional)
+//   - isPlanned: bool (optional)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (getUserData().role == 'admin' || 
+         (request.auth.token.email == "digitalsoutien@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isSchoolOwner(schoolId) {
+      return isAuthenticated() && 
+        (getUserData().role == 'school' && getUserData().schoolId == schoolId) ||
+        get(/databases/$(database)/documents/schools/$(schoolId)).data.ownerId == request.auth.uid;
+    }
+
+    function isTeacherInSchool(schoolId) {
+      return isAuthenticated() && getUserData().role == 'teacher' && getUserData().schoolId == schoolId;
+    }
+
+    function isStudentInSchool(schoolId) {
+      return isAuthenticated() && getUserData().role == 'student' && getUserData().schoolId == schoolId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && 
+        (request.resource.data.role == resource.data.role || isAdmin()); // Prevent self-role-escalation
+      
+      match /personalData/grades/{gradeId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    match /schools/{schoolId} {
+      allow read: if isAuthenticated(); // Or more restricted
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isSchoolOwner(schoolId) || isAdmin();
+
+      match /classes/{classId} {
+        allow read: if isSchoolOwner(schoolId) || isTeacherInSchool(schoolId) || isStudentInSchool(schoolId) || isAdmin();
+        allow write: if isSchoolOwner(schoolId) || isAdmin();
+      }
+
+      match /subjects/{subjectId} {
+        allow read: if isTeacherInSchool(schoolId) || isStudentInSchool(schoolId) || isSchoolOwner(schoolId) || isAdmin();
+        allow write: if isSchoolOwner(schoolId) || isAdmin();
+      }
+
+      match /grades/{gradeId} {
+        allow read: if isStudentInSchool(schoolId) && request.auth.uid == resource.data.studentId ||
+                     isTeacherInSchool(schoolId) || 
+                     isSchoolOwner(schoolId) || 
+                     isAdmin();
+        allow create: if isTeacherInSchool(schoolId) || isSchoolOwner(schoolId) || isAdmin();
+        allow update, delete: if isTeacherInSchool(schoolId) || isSchoolOwner(schoolId) || isAdmin();
+      }
+    }
+  }
+}

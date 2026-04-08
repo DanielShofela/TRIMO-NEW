@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and role",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "school", "teacher", "student", "personal"] },
+        "schoolId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "theme": { "type": "string", "enum": ["light", "dark"] },
+            "language": { "type": "string", "enum": ["fr", "en"] }
+          }
+        }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "School": {
+      "title": "School",
+      "description": "Educational institution",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "subscriptionPlan": { "type": "string", "enum": ["free", "premium", "enterprise"] },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["name", "ownerId", "subscriptionPlan", "isActive"]
+    },
+    "Class": {
+      "title": "Class",
+      "description": "School class",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "name": { "type": "string" },
+        "level": { "type": "string" },
+        "teacherIds": { "type": "array", "items": { "type": "string" } },
+        "studentIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["schoolId", "name"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "School subject",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "name": { "type": "string" },
+        "coefficient": { "type": "number" }
+      },
+      "required": ["name", "coefficient"]
+    },
+    "Grade": {
+      "title": "Grade",
+      "description": "Student grade",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "periodId": { "type": "string" },
+        "classId": { "type": "string" },
+        "grade": { "type": "number" },
+        "maxGrade": { "type": "number" },
+        "type": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "comment": { "type": "string" }
+      },
+      "required": ["studentId", "subjectId", "grade", "maxGrade", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile"
+    },
+    "/schools/{schoolId}": {
+      "schema": "School",
+      "description": "School details"
+    },
+    "/schools/{schoolId}/classes/{classId}": {
+      "schema": "Class",
+      "description": "Classes in a school"
+    },
+    "/schools/{schoolId}/subjects/{subjectId}": {
+      "schema": "Subject",
+      "description": "Subjects in a school"
+    },
+    "/schools/{schoolId}/grades/{gradeId}": {
+      "schema": "Grade",
+      "description": "Grades in a school"
+    },
+    "/users/{userId}/personalData/grades/{gradeId}": {
+      "schema": "Grade",
+      "description": "Personal grades for B2C users"
+    }
+  }
+}
